@@ -13,7 +13,7 @@ import (
 )
 
 func TestFCTController(t *testing.T) {
-	//todo: use an actual client else, pods won't download image which implies labelling won't work.
+	//todo: use an actual client (maybe kind?) else, pods won't download image which implies labelling won't work.
 	client := fake.NewSimpleClientset()
 	osNames := []string{"ubuntu", "centos", controller.FlatcarName}
 	expectedFlatcarCount := 0
