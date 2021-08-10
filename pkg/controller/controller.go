@@ -1,4 +1,4 @@
-package pkg
+package controller
 
 import (
 	"context"
@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	maxRetries          = 5
-	flatcarName         = "linux"
+
+	FlatcarName         = "linux" //todo: figure out actual os name for flatcar container linux
 	usesFlatcarLabelKey = "k8c.io~1uses-container-linux"
+	maxRetries          = 5
 )
 
 type Controller struct {
@@ -134,9 +135,14 @@ func (c *Controller) processItem(event Event) error {
 	case *api_v1.Node:
 		node := obj.(*api_v1.Node)
 		nodeOS := obj.(*api_v1.Node).Status.NodeInfo.OperatingSystem
-		if nodeOS == flatcarName {
+		if nodeOS == FlatcarName {
 			klog.Infof(fmt.Sprintf("Node %s running flatcar container linux, applying label", node.Name))
-			labelPatch := fmt.Sprintf(`[{"op":"add","path":"/metadata/labels/%s", "value":"%s" }]`, usesFlatcarLabelKey, "true")
+
+			labelPatch := fmt.Sprintf(
+				`[{"op":"add","path":"/metadata/labels/%s", "value":"%s" }]`,
+				usesFlatcarLabelKey,
+				"true",
+				)
 			_, err = c.kubeclientset.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, []byte(labelPatch), metav1.PatchOptions{})
 			if err != nil {
 				return fmt.Errorf("failed to label node: %v", err)

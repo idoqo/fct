@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"gitlab.com/idoko/flatcar-tag/pkg"
+	"gitlab.com/idoko/flatcar-tag/pkg/controller"
 	"k8s.io/client-go/rest"
 	"os"
 	"os/signal"
@@ -52,7 +52,7 @@ func main() {
 		0,
 		cache.Indexers{},
 	)
-	ctl := pkg.NewController(kubeClient, informer)
+	ctl := controller.NewController(kubeClient, informer)
 	ctl.Run(stopCh)
 }
 
