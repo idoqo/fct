@@ -1,9 +1,12 @@
 package pkg
 
 import (
+	"context"
 	"fmt"
-	api_v1 "k8s.io/api/core/v1"
 	"time"
+
+	api_v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -14,27 +17,32 @@ import (
 	"k8s.io/klog"
 )
 
-const maxRetries = 5
+const (
+	maxRetries          = 5
+	flatcarName         = "linux"
+	usesFlatcarLabelKey = "k8c.io~1uses-container-linux"
+)
 
 type Controller struct {
 	kubeclientset kubernetes.Interface
-	queue workqueue.RateLimitingInterface
-	informer cache.SharedIndexInformer
+	queue         workqueue.RateLimitingInterface
+	informer      cache.SharedIndexInformer
 }
 
 type Event struct {
-	key string
-	eventType string
+	key          string
+	eventType    string
 	resourceType string
 	//annotations map[string]string
 }
+
 func NewController(client kubernetes.Interface, informer cache.SharedIndexInformer) *Controller {
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	ctl := &Controller{
 		kubeclientset: client,
-		queue: queue,
-		informer: informer,
+		queue:         queue,
+		informer:      informer,
 	}
 
 	ctl.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -124,8 +132,16 @@ func (c *Controller) processItem(event Event) error {
 	}
 	switch objType := obj.(type) {
 	case *api_v1.Node:
+		node := obj.(*api_v1.Node)
 		nodeOS := obj.(*api_v1.Node).Status.NodeInfo.OperatingSystem
-		klog.Infof(fmt.Sprintf("Detected resource change for %s, type: %s, os: %s", event.resourceType, event.eventType, nodeOS))
+		if nodeOS == flatcarName {
+			klog.Infof(fmt.Sprintf("Node %s running flatcar container linux, applying label", node.Name))
+			labelPatch := fmt.Sprintf(`[{"op":"add","path":"/metadata/labels/%s", "value":"%s" }]`, usesFlatcarLabelKey, "true")
+			_, err = c.kubeclientset.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, []byte(labelPatch), metav1.PatchOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to label node: %v", err)
+			}
+		}
 		break
 	default:
 		klog.Infof(fmt.Sprintf("ignoring detected resource change for %s, type: %s", objType, event.eventType))
