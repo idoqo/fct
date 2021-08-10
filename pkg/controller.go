@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	api_v1 "k8s.io/api/core/v1"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,15 +77,19 @@ func (c *Controller) handleObject(obj interface{}) {
 	var object metav1.Object
 	var ok bool
 	var event Event
+	var err error
 	if object, ok = obj.(metav1.Object); !ok {
 		// probably a delete event, we should probably try recovering it from tombstone
 		klog.Info("error decoding object, invalid type")
 	} else {
 		klog.Infof("Processing object: %s", object.GetName())
-		//filter by node, and then by os (so we only enqueue)
+		event.key, err = cache.MetaNamespaceKeyFunc(obj)
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
 		event.eventType = "create"
 		event.resourceType = "node"
-		//event.annotations = object.GetAnnotations()
 		c.queue.Add(event)
 	}
 }
@@ -113,12 +118,17 @@ func (c *Controller) processNextItem() bool {
 }
 
 func (c *Controller) processItem(event Event) error {
-	_, _, err := c.informer.GetIndexer().GetByKey(event.key)
+	obj, _, err := c.informer.GetIndexer().GetByKey(event.key)
 	if err != nil {
 		return fmt.Errorf("failed to fetch object with key: %s from store: %s", event.key, err)
 	}
-	//objMeta := getObjectMetaData(obj)
-	klog.Infof(fmt.Sprintf("Detected resource change for %s, type: %s", event.resourceType, event.eventType))
-//	klog.Infof(fmt.Sprintf("%v", event.annotations))
+	switch objType := obj.(type) {
+	case *api_v1.Node:
+		nodeOS := obj.(*api_v1.Node).Status.NodeInfo.OperatingSystem
+		klog.Infof(fmt.Sprintf("Detected resource change for %s, type: %s, os: %s", event.resourceType, event.eventType, nodeOS))
+		break
+	default:
+		klog.Infof(fmt.Sprintf("ignoring detected resource change for %s, type: %s", objType, event.eventType))
+	}
 	return nil
 }
