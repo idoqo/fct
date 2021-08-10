@@ -33,8 +33,6 @@ type Controller struct {
 type Event struct {
 	key          string
 	eventType    string
-	resourceType string
-	//annotations map[string]string
 }
 
 func NewController(client kubernetes.Interface, informer cache.SharedIndexInformer) *Controller {
@@ -98,7 +96,6 @@ func (c *Controller) handleObject(obj interface{}) {
 			return
 		}
 		event.eventType = "create"
-		event.resourceType = "node"
 		c.queue.Add(event)
 	}
 }

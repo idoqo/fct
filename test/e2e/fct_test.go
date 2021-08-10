@@ -13,6 +13,7 @@ import (
 )
 
 func TestFCTController(t *testing.T) {
+	//todo: use an actual client else, pods won't download image which implies labelling won't work.
 	client := fake.NewSimpleClientset()
 	osNames := []string{"ubuntu", "centos", controller.FlatcarName}
 	expectedFlatcarCount := 0
@@ -25,9 +26,6 @@ func TestFCTController(t *testing.T) {
 		return &v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("test-node-%s", os),
-				Labels: map[string]string{
-					"k8c.io/uses-container-linux": "true",
-				},
 			},
 			Status: v1.NodeStatus{
 				NodeInfo: v1.NodeSystemInfo{
@@ -51,9 +49,31 @@ func TestFCTController(t *testing.T) {
 	})
 
 	t.Run("create fct-controller-pod", func(t *testing.T) {
-		_ = &v1.Pod{
-
+		podSpec := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "fct-controller-pod",
+				Labels: map[string]string{
+					"app": "fct",
+				},
+				Namespace: "default",
+			},
+			Spec: v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: "fct",
+						Image: "idoko/fct",
+						ImagePullPolicy: v1.PullIfNotPresent,
+					},
+				},
+				//ServiceAccountName:
+			},
 		}
+		pod, err := client.CoreV1().Pods(podSpec.Namespace).Create(context.TODO(), podSpec, metav1.CreateOptions{})
+		if err != nil {
+			t.Errorf("Failed to create pod: %s", err.Error())
+			return
+		}
+		t.Logf("created pod: %s", pod.Name)
 	})
 
 	t.Run("controller labelled flatcar nodes correctly", func(t *testing.T) {
@@ -75,6 +95,7 @@ func TestFCTController(t *testing.T) {
 				expectedFlatcarCount, selector.String(), matchCount)
 			return
 		}
+		t.Logf("expected %d, got %d", expectedFlatcarCount, matchCount)
 		for _, n := range nodes.Items {
 			t.Logf("found node: %s", n.Name)
 		}
