@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"time"
 
 	api_v1 "k8s.io/api/core/v1"
@@ -19,9 +21,10 @@ import (
 
 const (
 
-	FlatcarName         = "linux" //todo: figure out actual os name for flatcar container linux
-	usesFlatcarLabelKey = "k8c.io~1uses-container-linux"
-	maxRetries          = 5
+	FlatcarOSName         = "linux" //todo: figure out actual os name for flatcar container linux
+	usesFlatcarLabelKey   = "k8c.io~1uses-container-linux"
+	usesFlatcarLabelValue = "true"
+	maxRetries            = 5
 )
 
 type Controller struct {
@@ -60,7 +63,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	go c.informer.Run(stopCh)
 
 	klog.Info("Waiting for informer caches to sync")
-	if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
+	if !cache.WaitForNamedCacheSync("fct-controller", stopCh, c.HasSynced) {
 		utilruntime.HandleError(fmt.Errorf("caches failed to sync"))
 	}
 
@@ -69,6 +72,24 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	klog.Info("started flatcartag workers")
 	<-stopCh
 	klog.Info("shutting down flatcartag workers")
+}
+
+func CreateNodeInformer(client kubernetes.Interface) cache.SharedIndexInformer {
+	informer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return client.CoreV1().Nodes().List(context.TODO(), options)
+			},
+
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				return client.CoreV1().Nodes().Watch(context.TODO(), options)
+			},
+		},
+		&api_v1.Node{},
+		0,
+		cache.Indexers{},
+	)
+	return informer
 }
 
 func (c *Controller) HasSynced() bool {
@@ -132,13 +153,14 @@ func (c *Controller) processItem(event Event) error {
 	case *api_v1.Node:
 		node := obj.(*api_v1.Node)
 		nodeOS := obj.(*api_v1.Node).Status.NodeInfo.OperatingSystem
-		if nodeOS == FlatcarName {
-			klog.Infof(fmt.Sprintf("Node %s running flatcar container linux, applying label", node.Name))
+		if nodeOS == FlatcarOSName {
+			klog.Infof(fmt.Sprintf("Node %s running flatcar container linux, applying label {%s: %s}",
+				node.Name, usesFlatcarLabelKey, usesFlatcarLabelValue))
 
 			labelPatch := fmt.Sprintf(
-				`[{"op":"add","path":"/metadata/labels/%s", "value":"%s" }]`,
+				`[{"op": "add", "path":"/metadata/labels/%s", "value":"%s" }]`,
 				usesFlatcarLabelKey,
-				"true",
+				usesFlatcarLabelValue,
 				)
 			_, err = c.kubeclientset.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, []byte(labelPatch), metav1.PatchOptions{})
 			if err != nil {
