@@ -1,10 +1,11 @@
 ## flatcar-tag-controller (fct/fct-controller)
 
 This is a Kubernetes controller that automatically adds a label (`k8c.io/uses-container-linux`)
-to Nodes running Flatcar Container Linux as their base operating system.
+to Nodes running Flatcar Container Linux as their base operating system. Nodes are detected by checking
+for the string "flatcar" in the operating system name.
 ## Milestones
 - [x] Watch k8s node objects
-- [x] Check for nodes using Flatcar Container Linux (_*unable to access a cluster with nodes using Flatcar as the test cluster times out currently_).
+- [x] Check for nodes using Flatcar Container Linux.
 - [x] Attach a label (`k8c.io/uses-container-linux:‌‌'true'`) to the Node if it uses FC Linux. 
 - [x] Write a Dockerfile for the controller 
 - [x] Write a Kubernetes Deployment for the controller
@@ -29,7 +30,7 @@ kubectl apply -f fct-rbac.yml
 ```
 The above command will:
 - create a service account named `fct-sa` for the controller to use.
-- a cluster role with permissions to {get, list, watch, and patch} pods and nodes in the cluster.
+- a cluster role with permissions to {get, list, watch, and patch} nodes in the cluster.
 - create a cluster role-binding that binds the service account to the cluster role.
 
 Next, apply the controller deployment by running:
