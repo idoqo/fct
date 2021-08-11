@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes/fake"
+	"strings"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ func TestFCTController(t *testing.T) {
 	stopCh := make(chan struct{})
 
 	generateNodeSpec := func(os string) *apiv1.Node {
-		if os == FlatcarOSName {
+		if strings.Contains(os, FlatcarOSName) {
 			expectedFlatcarCount++
 		}
 

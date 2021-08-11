@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"strings"
 	"time"
 
 	api_v1 "k8s.io/api/core/v1"
@@ -21,7 +22,7 @@ import (
 
 const (
 
-	FlatcarOSName         = "linux" //todo: figure out actual os name for flatcar container linux
+	FlatcarOSName         = "flatcar" //todo: figure out actual os name for flatcar container linux
 	usesFlatcarLabelKey   = "k8c.io~1uses-container-linux"
 	usesFlatcarLabelValue = "true"
 	maxRetries            = 5
@@ -153,7 +154,7 @@ func (c *Controller) processItem(event Event) error {
 	case *api_v1.Node:
 		node := obj.(*api_v1.Node)
 		nodeOS := obj.(*api_v1.Node).Status.NodeInfo.OperatingSystem
-		if nodeOS == FlatcarOSName {
+		if strings.Contains(nodeOS, FlatcarOSName) {
 			klog.Infof(fmt.Sprintf("Node %s running flatcar container linux, applying label {%s: %s}",
 				node.Name, usesFlatcarLabelKey, usesFlatcarLabelValue))
 

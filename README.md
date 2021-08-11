@@ -41,16 +41,14 @@ This will start a pod for the controller using the `idoko/fct` docker image.
 ## Limitations
 - `kubectl` keeps timing out for me when using the provided cluster, so I haven't been able to test the
 controller against it yet.
-- I'm not sure about the correct OS name for nodes running Flatcar Container Linux hence, controller assumes that nodes running Flatcar Container Linux 
-  has "linux" as the operating system name. This causes it to label all nodes in a minikube (or kind) cluster. 
-Updating it to the correct name should be trivial (by updating the value of `container.FlatcarOSName`), and would be 
-  done once I'm able to access a node running Flatcar.
+- I'm not sure about the correct OS name for nodes running Flatcar Container Linux hence, controller checks
+  if the operating system name contains the string "flatcar". 
+Updating it to the correct name should be trivial (by updating the value of `container.FlatcarOSName`) and
+  checking for equality. This would be done once I'm able to access a node running Flatcar.
   
 ## Checks
 The controller works against:
 - a fake cluster (using the unit tests in `pkg/controller/controller_test.go`)
-- local cluster running on minikube.
-- local cluster running on kind.
 ## Resources
 - https://github.com/kubernetes-sigs/controller-runtime
 - https://github.com/kubernetes/sample-controller/
