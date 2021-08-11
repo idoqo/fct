@@ -11,7 +11,7 @@ metadata:
   namespace: default
 rules:
   - apiGroups: [""]
-    resources: ["pods", "nodes"]
+    resources: ["nodes"]
     verbs: ["get", "patch", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

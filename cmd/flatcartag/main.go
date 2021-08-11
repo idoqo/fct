@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"gitlab.com/idoko/flatcar-tag/pkg/controller"
 	"k8s.io/client-go/rest"
@@ -9,12 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	api_v1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 )
@@ -29,7 +23,6 @@ func main() {
 	flag.Parse()
 
 	stopCh := setupSignalHandler()
-	ctx := context.TODO()
 	var kubeClient kubernetes.Interface
 
 	if _, err := rest.InClusterConfig(); err != nil {
@@ -37,21 +30,7 @@ func main() {
 	} else {
 		kubeClient = getClient()
 	}
-
-	informer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
-				return kubeClient.CoreV1().Nodes().List(ctx, options)
-			},
-
-			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
-				return kubeClient.CoreV1().Nodes().Watch(ctx, options)
-			},
-		},
-		&api_v1.Node{},
-		0,
-		cache.Indexers{},
-	)
+	informer := controller.CreateNodeInformer(kubeClient)
 	ctl := controller.NewController(kubeClient, informer)
 	ctl.Run(stopCh)
 }

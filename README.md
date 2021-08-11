@@ -4,7 +4,7 @@ This is a Kubernetes controller that automatically adds a label (`k8c.io/uses-co
 to Nodes running Flatcar Container Linux as their base operating system.
 ## Milestones
 - [x] Watch k8s node objects
-- [x] Check for nodes using Flatcar Container Linux
+- [x] Check for nodes using Flatcar Container Linux (_*unable to access a cluster with nodes using Flatcar as the test cluster times out currently_).
 - [x] Attach a label (`k8c.io/uses-container-linux:‌‌'true'`) to the Node if it uses FC Linux. 
 - [x] Write a Dockerfile for the controller 
 - [x] Write a Kubernetes Deployment for the controller
@@ -38,11 +38,20 @@ kubectl apply -f fct-deployment.yml
 ```
 This will start a pod for the controller using the `idoko/fct` docker image.
 
-## Testing
-Tests live in `test/e2e`. They are insufficient though, as they use the mock kubeclient provided by
-`"k8s.io/client-go/kubernetes/fake"`. This means labelling doesn't work rightly.
+## Limitations
+- `kubectl` keeps timing out for me when using the provided cluster, so I haven't been able to test the
+controller against it yet.
+- I'm not sure about the correct OS name for nodes running Flatcar Container Linux hence, controller assumes that nodes running Flatcar Container Linux 
+  has "linux" as the operating system name. This causes it to label all nodes in a minikube (or kind) cluster. 
+Updating it to the correct name should be trivial (by updating the value of `container.FlatcarOSName`), and would be 
+  done once I'm able to access a node running Flatcar.
+  
+## Checks
+The controller works against:
+- a fake cluster (using the unit tests in `pkg/controller/controller_test.go`)
+- local cluster running on minikube.
+- local cluster running on kind.
 ## Resources
 - https://github.com/kubernetes-sigs/controller-runtime
 - https://github.com/kubernetes/sample-controller/
 - https://github.com/bitnami-labs/kubewatch
-- 
