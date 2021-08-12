@@ -14,6 +14,13 @@ import (
 	"k8s.io/klog"
 )
 
+var kubeconfig string
+
+
+func init() {
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+}
+
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -34,11 +41,15 @@ func main() {
 func getClientOutOfCluster() kubernetes.Interface {
 	var cfg *rest.Config
 	var err error
-	cfgPath := os.Getenv("KUBECONFIG")
-	if cfgPath == "" {
-		cfgPath = os.Getenv("HOME") + "/.kube/config"
+
+	// attempt to read from flag, then env variable, then direct path (on Linux)
+	if kubeconfig == "" {
+		if kubeconfig = os.Getenv("KUBECONFIG"); kubeconfig == "" {
+			kubeconfig = os.Getenv("HOME") + "/.kube/config"
+		}
 	}
-	cfg, err = clientcmd.BuildConfigFromFlags("", cfgPath)
+
+	cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		klog.Fatalf("Failed to get kubeconfig: %s", err.Error())
 	}

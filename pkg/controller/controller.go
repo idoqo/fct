@@ -48,8 +48,45 @@ func NewController(client kubernetes.Interface, informer cache.SharedIndexInform
 		informer:      informer,
 	}
 
+	var object metav1.Object
+	var ok bool
+	var event Event
+	var err error
 	ctl.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: ctl.handleObject,
+		AddFunc: func(obj interface{}) {
+			if object, ok = obj.(metav1.Object); !ok {
+				klog.Info("error decoding object, invalid type")
+			} else {
+				klog.Infof("Processing object: %s", object.GetName())
+				event.key, err = cache.MetaNamespaceKeyFunc(obj)
+				if err != nil {
+					utilruntime.HandleError(err)
+				}
+				event.eventType = "create"
+				queue.Add(event)
+			}
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if object, ok = newObj.(metav1.Object); !ok {
+				klog.Info("error decoding new object, invalid type")
+			} else {
+				klog.Infof("Processing object: %s", object.GetName())
+				event.key, err = cache.MetaNamespaceKeyFunc(newObj)
+				if err != nil {
+					utilruntime.HandleError(err)
+				}
+				switch objType := newObj.(type) {
+				case *api_v1.Node:
+					if _, exists := objType.Labels["k8c.io/uses-container-linux"]; !exists {
+						// only requeue if the node isn't already labelled.
+						event.eventType = "update"
+						queue.Add(event)
+					}
+					break
+				default:
+				}
+			}
+		},
 	})
 
 	return ctl
@@ -99,26 +136,6 @@ func (c *Controller) HasSynced() bool {
 
 func (c *Controller) runWorker() {
 	for c.processNextItem() {
-	}
-}
-
-func (c *Controller) handleObject(obj interface{}) {
-	var object metav1.Object
-	var ok bool
-	var event Event
-	var err error
-	if object, ok = obj.(metav1.Object); !ok {
-		// probably a delete event, we should probably try recovering it from tombstone
-		klog.Info("error decoding object, invalid type")
-	} else {
-		klog.Infof("Processing object: %s", object.GetName())
-		event.key, err = cache.MetaNamespaceKeyFunc(obj)
-		if err != nil {
-			utilruntime.HandleError(err)
-			return
-		}
-		event.eventType = "create"
-		c.queue.Add(event)
 	}
 }
 

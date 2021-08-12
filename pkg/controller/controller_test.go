@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"strings"
 	"testing"
@@ -20,6 +21,9 @@ func TestFCTController(t *testing.T) {
 	ctx := context.TODO()
 	stopCh := make(chan struct{})
 
+	generateNodeName := func(os string) string {
+		return fmt.Sprintf("test-node-%s", os)
+	}
 	generateNodeSpec := func(os string) *apiv1.Node {
 		if strings.Contains(os, FlatcarOSName) {
 			expectedFlatcarCount++
@@ -27,7 +31,7 @@ func TestFCTController(t *testing.T) {
 
 		return &apiv1.Node{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("test-node-%s", os),
+				Name: generateNodeName(os),
 				Labels: map[string]string{
 					"test_label": fmt.Sprintf("label-%s", os),
 				},
@@ -63,28 +67,62 @@ func TestFCTController(t *testing.T) {
 	// we stop execution once we get a success result (of if we timeout).
 	time.Sleep(3 * time.Second)
 
-	t.Run("test for properly labelled nodes", func(t *testing.T) {
+	getFlatcarNodes := func() (*apiv1.NodeList, error) {
 		flatcarFilter, err := labels.NewRequirement("k8c.io/uses-container-linux", selection.Equals, []string{"true"})
 		if err != nil {
-			t.Errorf("bad label requirement: %s", err.Error())
-			return
+			return nil, err
 		}
 
 		selector := labels.NewSelector().Add(*flatcarFilter)
 		nodes, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 		if err != nil {
-			t.Errorf("failed to fetch running nodes: %s", err.Error())
+			return nil, err
+		}
+		return nodes, nil
+	}
+
+	t.Run("test for properly labelled nodes", func(t *testing.T) {
+		nodes, err := getFlatcarNodes()
+		if err != nil {
+			t.Errorf("failed to get flatcar nodes: %s", err.Error())
 			return
 		}
 		matchCount := len(nodes.Items)
 		if matchCount != expectedFlatcarCount {
-			t.Errorf("expected %d node(s) with label: %s, got %d",
-				expectedFlatcarCount, selector.String(), matchCount)
+			t.Errorf("expected %d node(s) with flatcar label, got %d",
+				expectedFlatcarCount, matchCount)
 			return
 		}
 		for _, n := range nodes.Items {
 			t.Logf("found node: %s", n.Name)
 		}
-		stopCh <- struct{}{}
 	})
+
+	t.Run("controller relabels node if label is deleted", func(t *testing.T) {
+		deleteLabelPatch := fmt.Sprintf(`[{"op": "remove", "path": "/metadata/labels/%s"}]`, usesFlatcarLabelKey)
+		_, err := client.CoreV1().Nodes().Patch(ctx, generateNodeName(FlatcarOSName),
+			types.JSONPatchType, []byte(deleteLabelPatch), metav1.PatchOptions{})
+		if err != nil {
+			t.Errorf("failed to remove label from node: %s", err.Error())
+		}
+		// wait for a moment before checking for labels
+		time.Sleep(1 * time.Second)
+
+		nodes, err := getFlatcarNodes()
+		if err != nil {
+			t.Errorf("failed to get flatcar nodes: %s", err.Error())
+			return
+		}
+		matchCount := len(nodes.Items)
+		if matchCount != expectedFlatcarCount {
+			t.Errorf("expected %d node(s) with flatcar label, got %d",
+				expectedFlatcarCount, matchCount)
+			return
+		}
+		for _, n := range nodes.Items {
+			t.Logf("found node: %s", n.Name)
+		}
+	})
+
+	stopCh <- struct{}{}
 }
