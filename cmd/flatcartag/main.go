@@ -2,20 +2,16 @@ package main
 
 import (
 	"flag"
-	"gitlab.com/idoko/flatcar-tag/pkg/controller"
-	"k8s.io/client-go/rest"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"gitlab.com/idoko/flatcar-tag/pkg/controller"
+	"k8s.io/client-go/rest"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
-)
-
-var (
-	masterURL string
-	kubeconfig string
 )
 
 func main() {
@@ -74,15 +70,10 @@ func setupSignalHandler() <-chan struct{} {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		<- c
+		<-c
 		close(stop)
-		<- c
+		<-c
 		os.Exit(1) // close if a second signal is caught
 	}()
 	return stop
-}
-
-func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Required if out-of-cluster")
-	flag.StringVar(&masterURL, "master", "", "Address of the kube-api-server. Overrides any value in kubeconfig. Required if out-of-cluster")
 }

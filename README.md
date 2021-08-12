@@ -15,7 +15,7 @@ for the string "flatcar" in the operating system name.
 ### out-of-cluster
 Clone the repo and in the `node-label-controller` folder, build the application binary by running:
 ```bash
-go build -o build/fct ./cmd/flatcartag
+make build
 ```
 The command will generate the executable in `$PWD/build/fct`.
 Next, run `./build/fct` to watch the nodes in your cluster. 
@@ -24,20 +24,21 @@ In out-of-cluster mode, `fct` will prioritize the value of your `$KUBECONFIG`
 environment variable over `$HOME/.kube/config`. As a result, you can run it on your choice
 cluster by setting `$KUBECONFIG` appropriately. 
 ### in-cluster
-To run `fct` in a cluster, apply the RBAC manifest with:
+Install `fct` in a cluster by running:
 ```bash
-kubectl apply -f fct-rbac.yml
+make install
 ```
+
 The above command will:
 - create a service account named `fct-sa` for the controller to use.
 - a cluster role with permissions to {get, list, watch, and patch} nodes in the cluster.
 - create a cluster role-binding that binds the service account to the cluster role.
+- apply the fct-deployment that is based on the `idoko/fct` docker image.
 
-Next, apply the controller deployment by running:
+You can remove the controller from the cluster by running:
 ```bash
-kubectl apply -f fct-deployment.yml
+make uninstall
 ```
-This will start a pod for the controller using the `idoko/fct` docker image.
 
 ## Limitations
 - `kubectl` keeps timing out for me when using the provided cluster, so I haven't been able to test the
