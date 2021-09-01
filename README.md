@@ -1,6 +1,6 @@
 ## flatcar-tag-controller (fct/fct-controller)
 
-This is a Kubernetes controller that automatically adds a label (`k8c.io/uses-container-linux`)
+A Kubernetes controller that automatically adds a label (`k8c.io/uses-container-linux`)
 to Nodes running Flatcar Container Linux as their base operating system. Nodes are detected by checking
 for the string "flatcar" in the operating system name.
 ## Milestones
@@ -40,14 +40,6 @@ You can remove the controller from the cluster by running:
 make uninstall
 ```
 
-## Limitations
-- `kubectl` keeps timing out for me when using the provided cluster, so I haven't been able to test the
-controller against it yet.
-- I'm not sure about the correct OS name for nodes running Flatcar Container Linux hence, controller checks
-  if the operating system name contains the string "flatcar". 
-Updating it to the correct name should be trivial (by updating the value of `container.FlatcarOSName`) and
-  checking for equality. This would be done once I'm able to access a node running Flatcar.
-  
 ## Checks
 The controller works against:
 - a fake cluster (using the unit tests in `pkg/controller/controller_test.go`)
